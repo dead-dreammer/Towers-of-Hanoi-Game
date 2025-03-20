@@ -70,13 +70,54 @@ exit_img = pygame.image.load("buttons/exit.png").convert_alpha()
 start_button = Button(100, 200, start_img, 0.5)
 exit_button = Button(450, 225, exit_img, 0.4)
 
+# Disk sizes and colors
+disk_data = {
+    "purple": {"size": 200, "color": PURPLE},
+    "red": {"size": 170, "color": RED},
+    "blue": {"size": 140, "color": BLUE},
+    "green": {"size": 110, "color": GREEN},
+    "yellow": {"size": 80, "color": YELLOW},
+    "orange": {"size": 60, "color": ORANGE},
+    "pink": {"size":30, "color": PINK}
+}
 
-# Variable to control the game loop
-running = True
+# Poles (A, B, C) are represented as stacks (bottom to top)
+poles = {
+    "A": ["purple", "red", "blue", "green", "yellow", "orange", "pink"],
+    "B": [],
+    "C": []
+}
 
-# Main game loop
-while running:
-    
+# Pole positions on the screen
+pole_positions = {
+    "A": 150,
+    "B": 400,
+    "C": 650
+}
+
+# Function to draw the poles
+def draw_poles():
+    pygame.draw.line(screen, BLACK, [150, 400], [150, 100], 10)
+    pygame.draw.line(screen, BLACK, [400, 400], [400, 100], 10)
+    pygame.draw.line(screen, BLACK, [650, 400], [650, 100], 10)
+    pygame.draw.line(screen, BLACK, [146, 400], [655, 400], 10)
+
+# Function to draw disks on the screen
+def draw_disks():
+    for pole in poles:
+        x = pole_positions[pole]  # Get the X position of the pole
+        for i, disk in enumerate(poles[pole]):
+            y = 370 - (i * 30)  # Position disks correctly on the pole
+            width = disk_data[disk]["size"]
+            color = disk_data[disk]["color"]
+            pygame.draw.rect(screen, color, [x - (width // 2), y, width, 20])
+
+def draw_components():
+    draw_poles()
+    draw_disks()
+    draw_text("Press SPACE to pause", font, BLACK, 250, 500)
+
+def home_page():
     #background of the game
     background = pygame.image.load("images/bg.jpg")
     bg_resized = pygame.transform.scale(background, (1000, 600))
@@ -85,11 +126,30 @@ while running:
     # display game name
     draw_text("Towers of Hanoi", heading, BLACK, 200, 100)
 
-    # display buttons
-    start_button.draw()
+#initialize variables
+game_started = False
 
-    if exit_button.draw():
-        running = False
+# Variable to control the game loop
+running = True
+
+# Main game loop
+while running:
+
+    if not game_started:
+        home_page()
+
+        # display buttons
+        if start_button.draw():
+            #if the start button is pressed then the game starts
+            game_started = True 
+
+        if exit_button.draw():
+            #if the exit button is pressed then the game closes
+            running = False
+
+    if game_started:
+        #if the game starts then draw the components
+        draw_components()
     
     # Event handling loop
     for event in pygame.event.get():
