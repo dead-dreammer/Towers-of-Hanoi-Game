@@ -24,6 +24,7 @@ pygame.display.set_icon(icon)
 # font 
 font = pygame.font.SysFont("arialblack", 25)
 heading = pygame.font.SysFont("arialblack", 45)
+move_text = pygame.font.SysFont("arialblack", 15)
 
 # function for rendering font
 def draw_text(text, font, color, x, y):
@@ -112,6 +113,13 @@ def draw_disks():
             y = 370 - (i * 30)  # Position disks correctly on the pole
             width = disk_data[disk]["size"]
             color = disk_data[disk]["color"]
+
+            # If this disk is the selected one, add glow effect
+            if selected_disk == disk:
+                glow = pygame.Surface((width + 10, 30), pygame.SRCALPHA)  # Create glow surface
+                glow.fill((*color, 80))  # White with transparency
+                screen.blit(glow, (x - (width // 2) - 5, y - 5))  # Draw glow
+
             pygame.draw.rect(screen, color, [x - (width // 2), y, width, 20])
 
 # Track selected disk and its original pole
@@ -259,6 +267,10 @@ def get_user_input(prompt):
                     elif event.unicode.isdigit():  # Allow only digits
                         text += event.unicode
 
+        # **Clear input box before rendering new text**
+        pygame.draw.rect(screen, WHITE, input_box)  
+        pygame.draw.rect(screen, color, input_box, 2)  
+
         # Render the text inside the input box
         txt_surface = font.render(text, True, BLACK)
         screen.blit(txt_surface, (input_box.x + 40, input_box.y + 10))
@@ -276,22 +288,40 @@ def check_disks(num_disks):
         return True
     
     else:
-        draw_text("Invalid input! Enter a number between 3 and 7.", font, RED, 130, 430)
+        draw_text("Invalid input! Enter a number between 3 and 7.", font, RED, 100, 450)
         pygame.display.update()
-        time.sleep(1)  # Show the message briefly before retrying
+        time.sleep(1.5)  # Show the message briefly before retrying
         return False
+    
+def check_game_over():
+    global game_over, start_time
+    if poles["C"] == list(disk_data.keys())[:num_disks]:  # If all disks are in C
+        game_over = True
+        start_time = None
+        return True
+    return False
 
+move_message = ""
+color_text = ORANGE
 
 def draw_components():
+    global move_count, color_text
     if game_paused:
         screen.fill(WHITE)
         draw_text("Game Paused", heading, BLACK, 250, 250)
+
+
+    elif game_over:
+        draw_text("GAME OVER", font, BLACK, 250, 500)
 
     else:
         draw_poles()
         draw_disks()
         draw_timer()
         draw_text("Press SPACE to pause", font, BLACK, 250, 500)
+        draw_text(f"Move Counts:  {move_count}" ,font, BLACK, 300, 50 )
+        draw_text(move_message, move_text, color_text, 300, 550)
+
 
     if undo_button.draw():
         undo_move()
@@ -308,6 +338,7 @@ def home_page():
 
 # initialize variables
 game_started = False
+game_over = False
 
 # Variable to control the game loop
 running = True
@@ -325,7 +356,7 @@ while running:
             if num_disks is None:  # Ask for input only when needed
                 screen.blit(bg_resized, (0, 0))
                 draw_text("Towers of Hanoi", heading, BLACK, 200, 100)
-                draw_text("Press Enter to Continue", font, RED, 250, 400)
+                draw_text("Press Enter to Continue", font, BLUE, 225, 400)
 
 
                 temp_input = get_user_input("Enter number of disks (3-7):")
@@ -344,6 +375,17 @@ while running:
     if game_started:
         #if the game starts then draw the components
         draw_components()
+
+        if check_game_over():  # If the game is over
+            time_over = elapsed_time
+            overImg = pygame.image.load("images/game_over.jpg").convert_alpha()
+            overResized = pygame.transform.scale(overImg, (800, 600))
+            screen.blit( overResized, (0, 0))
+            draw_text(" Game Over! You Won! ", heading, BLACK, 150, 250)
+            draw_text(f"You completed it in {round(time_over, 0)}", font,BLACK, 250, 350 )
+
+            pygame.display.update()
+            time.sleep(3)  # Pause to show message
     
     # Event handling loop
     for event in pygame.event.get():
@@ -373,13 +415,16 @@ while running:
                 if selected_disk is None and poles[clicked_pole]:  # Pick up a disk
                     selected_disk = poles[clicked_pole][-1]
                     selected_pole = clicked_pole
-                    print(f"🎯 Picked up {selected_disk} from {selected_pole}")
+                    move_message = f"Picked up {selected_disk} from {selected_pole}"
+                    color_text = BLUE
 
                 elif selected_disk is not None:  # Drop the disk
                     if move_disk(selected_pole, clicked_pole):
-                        print(f"✅ Moved {selected_disk} to {clicked_pole}")
+                        move_message = (f"Moved {selected_disk} to {clicked_pole}")
+                        color_text = GREEN
                     else:
-                        draw_text(f"❌ Invalid move for {selected_disk} to {clicked_pole}", font, BLACK, 100, 400)
+                        move_message  = f"Invalid move for {selected_disk} to {clicked_pole}"
+                        color_text = RED
                     selected_disk = None
                     selected_pole = None
 
