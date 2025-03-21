@@ -112,6 +112,70 @@ def draw_disks():
             color = disk_data[disk]["color"]
             pygame.draw.rect(screen, color, [x - (width // 2), y, width, 20])
 
+# Track selected disk and its original pole
+selected_disk = None
+selected_pole = None
+
+# Function to check if a move is valid (smaller disk on top)
+def can_move(disk, target_pole):
+    if not poles[target_pole]:  # If target pole is empty, allow move
+        return True
+    top_disk = poles[target_pole][-1]  # Get the top disk
+    return disk_data[disk]["size"] < disk_data[top_disk]["size"]
+
+# Function to handle disk movement
+def move_disk(from_pole, to_pole):
+
+    if from_pole and to_pole and poles[from_pole]:  # Ensure there's a disk to move
+        disk = poles[from_pole][-1]  # Get the top disk
+        if can_move(disk, to_pole):  # Check if move is valid
+            start_x = pole_positions[from_pole]  # Get starting X position
+            end_x = pole_positions[to_pole]  # Get target X position
+            y = 370 - (len(poles[from_pole]) * 30)  # Get current Y position
+
+            poles[from_pole].pop()  # Remove from old pole
+            
+            # Move disk upwards (to lift it)
+            for step in range(10):
+                screen.fill(WHITE)  
+                draw_components()
+                pygame.draw.rect(screen, disk_data[disk]["color"], [start_x - (disk_data[disk]["size"] // 2), y - (step * 10), disk_data[disk]["size"], 20])
+                pygame.display.update()
+                pygame.time.delay(30)  # Small delay for smooth animation
+
+            # Move disk sideways (to the new pole)
+            for step in range(10):
+                screen.fill(WHITE)
+                draw_components()
+                new_x = start_x + (end_x - start_x) * (step / 10)
+                pygame.draw.rect(screen, disk_data[disk]["color"], [new_x - (disk_data[disk]["size"] // 2), y - 100, disk_data[disk]["size"], 20])
+                pygame.display.update()
+                pygame.time.delay(30)
+
+            # Move disk downwards (onto the new pole)
+            for step in range(10):
+                screen.fill(WHITE)
+                draw_components()
+                new_y = (370 - (len(poles[to_pole]) * 30)) - (100 - step * 10)
+                pygame.draw.rect(screen, disk_data[disk]["color"], [end_x - (disk_data[disk]["size"] // 2), new_y, disk_data[disk]["size"], 20])
+                pygame.display.update()
+                pygame.time.delay(30)
+
+            poles[to_pole].append(disk)  # Add to new pole
+
+            return True
+    return False
+
+# Function to get pole based on mouse click position
+def get_pole_from_x(x):
+    if 100 <= x <= 200:
+        return "A"
+    elif 350 <= x <= 450:
+        return "B"
+    elif 600 <= x <= 700:
+        return "C"
+    return None
+
 def draw_components():
     draw_poles()
     draw_disks()
@@ -134,6 +198,7 @@ running = True
 
 # Main game loop
 while running:
+    screen.fill(WHITE)  # Clear screen
 
     if not game_started:
         home_page()
@@ -156,6 +221,26 @@ while running:
         # Check if the user closes the window
         if event.type == pygame.QUIT:
             running = False  # Exit the loop and close the game
+
+        
+        # Handle mouse click (pick up or drop disk)
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            clicked_pole = get_pole_from_x(mouse_x)
+
+            if clicked_pole:  # If a pole was clicked
+                if selected_disk is None and poles[clicked_pole]:  # Pick up a disk
+                    selected_disk = poles[clicked_pole][-1]
+                    selected_pole = clicked_pole
+                    print(f"🎯 Picked up {selected_disk} from {selected_pole}")
+
+                elif selected_disk is not None:  # Drop the disk
+                    if move_disk(selected_pole, clicked_pole):
+                        print(f"✅ Moved {selected_disk} to {clicked_pole}")
+                    else:
+                        draw_text(f"❌ Invalid move for {selected_disk} to {clicked_pole}", font, BLACK, 100, 400)
+                    selected_disk = None
+                    selected_pole = None
 
     # Update the display to reflect any changes
     pygame.display.update()
