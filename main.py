@@ -1,6 +1,5 @@
 import pygame
-
-import pygame
+import time
 
 # Initialize pygame
 pygame.init()
@@ -195,10 +194,42 @@ def undo_move():
             poles[last_from].append(disk)  # Move disk back
             move_count -= 1
 
+# Timer variables
+start_time = None  # Stores when the game starts
+paused_time = 0
+game_paused = False
+
+def draw_timer():
+    global start_time, paused_time, elapsed_time
+    
+    if start_time:
+        if game_paused:
+            # If the game is paused, show the time as it was before the pause
+            elapsed_time = paused_time
+        else:
+            # Calculate the time since the game started or resumed
+            elapsed_time = time.time() - start_time + paused_time
+
+        # Draw the timer
+        font = pygame.font.Font(None, 36)
+
+        # Convert elapsed time to minutes and seconds
+        minutes = int(elapsed_time) // 60
+        seconds = int(elapsed_time) % 60
+
+        timer_text = font.render(f"Time: {minutes:02d}:{seconds:02d}", True, BLACK)
+        screen.blit(timer_text, (350, 450))  # Draw timer at the top right
+
 def draw_components():
-    draw_poles()
-    draw_disks()
-    draw_text("Press SPACE to pause", font, BLACK, 250, 500)
+    if game_paused:
+        screen.fill(WHITE)
+        draw_text("Game Paused", heading, BLACK, 250, 250)
+
+    else:
+        draw_poles()
+        draw_disks()
+        draw_timer()
+        draw_text("Press SPACE to pause", font, BLACK, 250, 500)
 
     if undo_button.draw():
         undo_move()
@@ -212,7 +243,7 @@ def home_page():
     # display game name
     draw_text("Towers of Hanoi", heading, BLACK, 200, 100)
 
-#initialize variables
+# initialize variables
 game_started = False
 
 # Variable to control the game loop
@@ -229,6 +260,7 @@ while running:
         if start_button.draw():
             #if the start button is pressed then the game starts
             game_started = True 
+            start_time = time.time()  # Initialize start time when game starts
 
         if exit_button.draw():
             #if the exit button is pressed then the game closes
@@ -244,7 +276,19 @@ while running:
         if event.type == pygame.QUIT:
             running = False  # Exit the loop and close the game
 
-        
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                if game_paused:
+                    # Unpause the game
+                    game_paused = False
+                    start_time = time.time()  # Reset the start time when resuming
+                else:
+                    # Pause the game
+                    game_paused = True
+                    if start_time:  # Only update paused_time if the game has started
+                        paused_time += time.time() - start_time  # Add time before pausing to paused_time
+                    start_time = None  # Stop the timer when paused
+
         # Handle mouse click (pick up or drop disk)
         if event.type == pygame.MOUSEBUTTONDOWN:
             mouse_x, mouse_y = pygame.mouse.get_pos()
