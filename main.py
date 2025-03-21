@@ -220,6 +220,68 @@ def draw_timer():
         timer_text = font.render(f"Time: {minutes:02d}:{seconds:02d}", True, BLACK)
         screen.blit(timer_text, (350, 450))  # Draw timer at the top right
 
+# Function to display a text input box and get user input
+def get_user_input(prompt):
+    input_box = pygame.Rect(510, 295, 100, 50)
+    color_inactive = pygame.Color(BLACK)
+    color_active = pygame.Color(RED)
+    color = color_inactive
+    text = ''
+    active = False
+    done = False
+    clock = pygame.time.Clock()
+
+    pygame.event.clear()  # Clears old events to prevent conflicts
+
+    while not done:
+
+        draw_text(prompt, font, BLACK, 100, 300)
+        pygame.draw.rect(screen, color, input_box, 2)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if input_box.collidepoint(event.pos):
+                    active = True
+                else:
+                    active = False
+                color = color_active if active else color_inactive
+
+            if event.type == pygame.KEYDOWN:
+                if active:
+                    if event.key == pygame.K_RETURN and text.strip().isdigit():
+                        return text  # Instead of quitting, return input to the game
+                    elif event.key == pygame.K_BACKSPACE:
+                        text = text[:-1]
+                    elif event.unicode.isdigit():  # Allow only digits
+                        text += event.unicode
+
+        # Render the text inside the input box
+        txt_surface = font.render(text, True, BLACK)
+        screen.blit(txt_surface, (input_box.x + 40, input_box.y + 10))
+
+        pygame.display.update()
+        clock.tick(30)
+
+    return text  # Ensure the function returns input instead of exiting
+
+num_disks = None
+
+def check_disks(num_disks):
+    if 3 <= num_disks <= 7:
+        poles["A"] = list(disk_data.keys())[:num_disks]  # Set the number of disks
+        return True
+    
+    else:
+        draw_text("Invalid input! Enter a number between 3 and 7.", font, RED, 130, 430)
+        pygame.display.update()
+        time.sleep(1)  # Show the message briefly before retrying
+        return False
+
+
 def draw_components():
     if game_paused:
         screen.fill(WHITE)
@@ -235,6 +297,7 @@ def draw_components():
         undo_move()
 
 def home_page():
+    global bg_resized
     #background of the game
     background = pygame.image.load("images/bg.jpg")
     bg_resized = pygame.transform.scale(background, (1000, 600))
@@ -256,15 +319,27 @@ while running:
     if not game_started:
         home_page()
 
-        # display buttons
+        # Always show Start and Exit buttons before game starts
         if start_button.draw():
-            #if the start button is pressed then the game starts
-            game_started = True 
-            start_time = time.time()  # Initialize start time when game starts
+
+            if num_disks is None:  # Ask for input only when needed
+                screen.blit(bg_resized, (0, 0))
+                draw_text("Towers of Hanoi", heading, BLACK, 200, 100)
+                draw_text("Press Enter to Continue", font, RED, 250, 400)
+
+
+                temp_input = get_user_input("Enter number of disks (3-7):")
+                if temp_input.isdigit():
+                    temp_input = int(temp_input)
+                    if check_disks(temp_input):  # Only start if input is valid
+                        num_disks = temp_input
+                        game_started = True
+                        start_time = time.time()  # Start timer
+
+                
 
         if exit_button.draw():
-            #if the exit button is pressed then the game closes
-            running = False
+            running = False  # Exit game
 
     if game_started:
         #if the game starts then draw the components
