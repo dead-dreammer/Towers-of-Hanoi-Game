@@ -65,10 +65,13 @@ class Button():
 #load button images
 start_img = pygame.image.load("buttons/start.png").convert_alpha()
 exit_img = pygame.image.load("buttons/exit.png").convert_alpha()
+undo_img = pygame.image.load("buttons/undo.png").convert_alpha()
+
 
 # create the start and exit button
 start_button = Button(100, 200, start_img, 0.5)
 exit_button = Button(450, 225, exit_img, 0.4)
+undo_button = Button(700, 50, undo_img, 0.1)
 
 # Disk sizes and colors
 disk_data = {
@@ -125,6 +128,7 @@ def can_move(disk, target_pole):
 
 # Function to handle disk movement
 def move_disk(from_pole, to_pole):
+    global move_count
 
     if from_pole and to_pole and poles[from_pole]:  # Ensure there's a disk to move
         disk = poles[from_pole][-1]  # Get the top disk
@@ -162,6 +166,8 @@ def move_disk(from_pole, to_pole):
                 pygame.time.delay(30)
 
             poles[to_pole].append(disk)  # Add to new pole
+            move_history.append((from_pole, to_pole))  # Save move for undo
+            move_count += 1
 
             return True
     return False
@@ -176,10 +182,26 @@ def get_pole_from_x(x):
         return "C"
     return None
 
+# Track moves (stores tuples of (from_pole, to_pole))
+move_history = []
+move_count = 0
+
+def undo_move():
+    global move_count
+    if move_history:  # If there are moves to undo
+        last_from, last_to = move_history.pop()  # Get last move
+        if poles[last_to]:  # Ensure there's a disk to move back
+            disk = poles[last_to].pop()
+            poles[last_from].append(disk)  # Move disk back
+            move_count -= 1
+
 def draw_components():
     draw_poles()
     draw_disks()
     draw_text("Press SPACE to pause", font, BLACK, 250, 500)
+
+    if undo_button.draw():
+        undo_move()
 
 def home_page():
     #background of the game
