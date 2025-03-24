@@ -4,7 +4,7 @@ import time
 # Initialize pygame
 pygame.init()
 
-# Define colors
+# Define colors used in the game
 BLACK = (0, 0, 0)
 RED = (250, 0, 0)
 GREEN = (0, 250, 0)
@@ -14,16 +14,18 @@ YELLOW = (255, 255, 0)
 ORANGE = (255, 165, 0)
 WHITE = (255, 255, 255)
 PINK = (255, 20, 147)
+DARK_GREEN = (0, 100, 0)
 
-# Create the game window with dimensions 800x600
+# Create the game window and its attributes
 screen = pygame.display.set_mode((800, 600))
 pygame.display.set_caption("Towers of Hanoi")
 icon = pygame.image.load("images/ring.png")
 pygame.display.set_icon(icon)
 
-# font 
+# font used in the game
 font = pygame.font.SysFont("arialblack", 25)
 heading = pygame.font.SysFont("arialblack", 45)
+move_text = pygame.font.SysFont("arialblack", 15)
 
 # function for rendering font
 def draw_text(text, font, color, x, y):
@@ -103,6 +105,9 @@ def draw_poles():
     pygame.draw.line(screen, BLACK, [400, 400], [400, 100], 10)
     pygame.draw.line(screen, BLACK, [650, 400], [650, 100], 10)
     pygame.draw.line(screen, BLACK, [146, 400], [655, 400], 10)
+    draw_text("A", font, BLACK, 140, 405)
+    draw_text("B", font, BLACK, 390, 405)
+    draw_text("C", font, BLACK, 640, 405)
 
 # Function to draw disks on the screen
 def draw_disks():
@@ -112,6 +117,13 @@ def draw_disks():
             y = 370 - (i * 30)  # Position disks correctly on the pole
             width = disk_data[disk]["size"]
             color = disk_data[disk]["color"]
+
+            # If this disk is the selected one, add glow effect
+            if selected_disk == disk:
+                glow = pygame.Surface((width + 10, 30), pygame.SRCALPHA)  # Create glow surface
+                glow.fill((*color, 80))  
+                screen.blit(glow, (x - (width // 2) - 5, y - 5))  
+
             pygame.draw.rect(screen, color, [x - (width // 2), y, width, 20])
 
 # Track selected disk and its original pole
@@ -166,7 +178,7 @@ def move_disk(from_pole, to_pole):
 
             poles[to_pole].append(disk)  # Add to new pole
             move_history.append((from_pole, to_pole))  # Save move for undo
-            move_count += 1
+            move_count += 1 # increase move count
 
             return True
     return False
@@ -181,7 +193,7 @@ def get_pole_from_x(x):
         return "C"
     return None
 
-# Track moves (stores tuples of (from_pole, to_pole))
+# Track moves 
 move_history = []
 move_count = 0
 
@@ -200,7 +212,7 @@ paused_time = 0
 game_paused = False
 
 def draw_timer():
-    global start_time, paused_time, elapsed_time
+    global start_time, paused_time, elapsed_time, timer_text
     
     if start_time:
         if game_paused:
@@ -218,25 +230,131 @@ def draw_timer():
         seconds = int(elapsed_time) % 60
 
         timer_text = font.render(f"Time: {minutes:02d}:{seconds:02d}", True, BLACK)
-        screen.blit(timer_text, (350, 450))  # Draw timer at the top right
+        screen.blit(timer_text, (350, 460))  # Draw timer at the top right
 
+# Function to display a text input box and get user input
+def get_user_input(prompt):
+    input_box = pygame.Rect(510, 295, 100, 50)
+    color_inactive = pygame.Color(BLACK)
+    color_active = pygame.Color(RED)
+    color = color_inactive
+    text = ''
+    active = False
+    done = False
+    clock = pygame.time.Clock()
+
+    pygame.event.clear()  # Clears old events to prevent conflicts
+
+    while not done:
+
+        # draw the prompt on the screen
+        draw_text(prompt, font, BLACK, 100, 300)
+        pygame.draw.rect(screen, color, input_box, 2)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if input_box.collidepoint(event.pos):
+                    active = True
+                else:
+                    active = False
+                color = color_active if active else color_inactive
+
+            if event.type == pygame.KEYDOWN:
+                if active:
+                    if event.key == pygame.K_RETURN and text.strip().isdigit():
+                        return text  # Instead of quitting, return input to the game
+                    elif event.key == pygame.K_BACKSPACE:
+                        text = text[:-1] # remove last input
+                    elif event.unicode.isdigit():  # Allow only digits
+                        text += event.unicode
+
+        # **Clear input box before rendering new text**
+        pygame.draw.rect(screen, WHITE, input_box)  
+        pygame.draw.rect(screen, color, input_box, 2)  
+
+        # Render the text inside the input box
+        txt_surface = font.render(text, True, BLACK)
+        screen.blit(txt_surface, (input_box.x + 40, input_box.y + 5))
+
+        pygame.display.update()
+        clock.tick(30)
+
+    return text 
+
+# intialize the number of disks
+num_disks = None
+
+def check_disks(num_disks):
+    if 1 <= num_disks <= 7:
+        poles["A"] = list(disk_data.keys())[:num_disks]  # Set the number of disks
+        return True
+    
+    else:
+        draw_text("Invalid input! Enter a number between 3 and 7.", font, RED, 100, 450)
+        pygame.display.update()
+        time.sleep(1.5)  # Show the message briefly before retrying
+        return False
+    
+def check_game_over():
+    global game_over, start_time
+    if poles["C"] == list(disk_data.keys())[:num_disks]:  # If all disks are in C
+        game_over = True
+        start_time = None
+        return True
+    return False
+
+# intialize the move-message variables
+move_message = ""
+color_text = ORANGE
+message_timer = 0  # Tracks the time when a message is set
+
+# Function to draw game components on screen
 def draw_components():
+    global move_count, color_text, move_message
+
     if game_paused:
-        screen.fill(WHITE)
-        draw_text("Game Paused", heading, BLACK, 250, 250)
+        # if the game is paused then display the following
+        paused_img = pygame.image.load("images/gamepaused.jpg").convert_alpha()
+        pausedResized = pygame.transform.scale(paused_img, (1200, 600))
+        screen.blit(pausedResized, (0, 0))
+        draw_text("Game Paused", heading, BLACK, 250, 100)
+        draw_text("Press SPACE to resume game", font, BLACK, 200, 200)
+
+
+    elif game_over:
+        # if the user wins then display the following
+        over_img = pygame.image.load("images/over_img.jpg").convert_alpha()
+        overbgResized = pygame.transform.scale(over_img, (1000, 600))
+        screen.blit(overbgResized, (0, 0))
 
     else:
+        # display the following when the game starts
         draw_poles()
         draw_disks()
         draw_timer()
-        draw_text("Press SPACE to pause", font, BLACK, 250, 500)
+        draw_text("Press SPACE to pause", font, DARK_GREEN, 250, 500)
+        draw_text(f"Move Counts:  {move_count}" ,font, DARK_GREEN, 300, 50 )
 
-    if undo_button.draw():
-        undo_move()
+        # Check if the message should still be displayed
+        if move_message and (time.time() - message_timer) < 1:  # Display for 1 second
+            draw_text(move_message, move_text, color_text, 300, 550)
+        else:
+            move_message = ""  # Clear message after 1 second
 
+        if undo_button.draw():
+            undo_move()
+        draw_text("undo" ,move_text, BLUE, 705, 100 )
+
+# Function to display the home_page
 def home_page():
+    global bg_resized
+
     #background of the game
-    background = pygame.image.load("images/bg.jpg")
+    background = pygame.image.load("images/bg.jpg").convert_alpha()
     bg_resized = pygame.transform.scale(background, (1000, 600))
     screen.blit(bg_resized, (0, 0))
 
@@ -245,6 +363,7 @@ def home_page():
 
 # initialize variables
 game_started = False
+game_over = False
 
 # Variable to control the game loop
 running = True
@@ -256,19 +375,38 @@ while running:
     if not game_started:
         home_page()
 
-        # display buttons
+        # Always show Start and Exit buttons before game starts
         if start_button.draw():
-            #if the start button is pressed then the game starts
-            game_started = True 
-            start_time = time.time()  # Initialize start time when game starts
+
+            if num_disks is None:  # Ask for input only when needed
+                screen.blit(bg_resized, (0, 0))
+                draw_text("Towers of Hanoi", heading, BLACK, 200, 100)
+                draw_text("Press Enter to Continue", font, BLUE, 225, 400)
+
+                temp_input = get_user_input("Enter number of disks (3-7):")
+                if temp_input.isdigit():
+                    temp_input = int(temp_input)
+                    if check_disks(temp_input):  # Only start if input is valid
+                        num_disks = temp_input
+                        game_started = True
+                        start_time = time.time()  # Start timer
 
         if exit_button.draw():
-            #if the exit button is pressed then the game closes
-            running = False
+            running = False  # Exit game
 
     if game_started:
         #if the game starts then draw the components
         draw_components()
+
+        # check if the game is over 
+        if check_game_over():  
+            minutes = int(elapsed_time) // 60
+            seconds = int(elapsed_time) % 60
+            overImg = pygame.image.load("images/game_over.png").convert_alpha()
+            overResized = pygame.transform.scale(overImg, (200, 150))
+            screen.blit( overResized, (310, 100))
+            draw_text(" Game Over! You Won! ", heading, WHITE, 100, 250)
+            draw_text(f"You completed it in {minutes:02d}:{seconds:02d}", font, BLACK, 225, 325 )
     
     # Event handling loop
     for event in pygame.event.get():
@@ -298,13 +436,19 @@ while running:
                 if selected_disk is None and poles[clicked_pole]:  # Pick up a disk
                     selected_disk = poles[clicked_pole][-1]
                     selected_pole = clicked_pole
-                    print(f"🎯 Picked up {selected_disk} from {selected_pole}")
-
+                    move_message = f"Picked up {selected_disk} from {selected_pole}"
+                    color_text = BLUE
+                    message_timer = time.time()  # Set message timer
+                    
                 elif selected_disk is not None:  # Drop the disk
                     if move_disk(selected_pole, clicked_pole):
-                        print(f"✅ Moved {selected_disk} to {clicked_pole}")
+                        move_message = (f"Moved {selected_disk} to {clicked_pole}")
+                        color_text = GREEN
+                        message_timer = time.time()  # Set message timer
                     else:
-                        draw_text(f"❌ Invalid move for {selected_disk} to {clicked_pole}", font, BLACK, 100, 400)
+                        move_message  = f"Invalid move for {selected_disk} to {clicked_pole}"
+                        color_text = RED
+                        message_timer = time.time()  # Set message timer
                     selected_disk = None
                     selected_pole = None
 
